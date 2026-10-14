@@ -329,7 +329,9 @@ function render(){
       const cls = ['cell', w===0?'sun':'', w===6?'sat':'', HOLIDAYS[key]?'hol':'', key<todayStr?'past':'', (!multi && key===selDate)?'sel':'', (multi && picked.has(key))?'pick':''].join(' ');
       const mine = mineMap[key] ? `<span class="mine ${ST_CLS[mineMap[key]]}">${mineMap[key]}</span>` : '';
       const confs = (conf[key]||[]).map(c=>`<span class="conf" style="background:${TYPE_COLORS[c.type]||'#475569'}" title="${c.memo||''}">${c.type}</span>`).join('');
-      html += `<div class="${cls}" data-date="${key}">
+      const cc = (conf[key]||[]).map(c=>TYPE_COLORS[c.type]||'#475569');
+      const cst = cc.length ? ` style="box-shadow:inset 0 0 0 3px ${cc[0]}${cc[1]?`,inset 0 0 0 6px ${cc[1]}`:''};background:${cc[0]}14"` : '';
+      html += `<div class="${cls}" data-date="${key}"${cst}>
         <span class="d">${d}</span>${HOLIDAYS[key]?`<span class="hname">${HOLIDAYS[key]}</span>`:''}${mine}${confs}
         ${s['가능'].length||s['미정'].length ? `<span class="c">가능 <b>${s['가능'].length}</b>/${s.total}</span>`:''}
         <div class="bar"><i class="o" style="width:${s['가능'].length/tot*100}%"></i><i class="m" style="width:${s['미정'].length/tot*100}%"></i></div>
