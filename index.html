@@ -321,7 +321,7 @@ function render(){
     const first = dt.getDay(), days = new Date(y, m, 0).getDate();
     const ymk = `${y}-${pad(m)}`;
     const badge = (type,short) => { const l = DATA.confirmed.filter(c=>c.type===type && c.date.startsWith(ymk)).map(c=>{const d=new Date(c.date+'T00:00:00');return `${m}/${d.getDate()}(${DOW[d.getDay()]})`;}); return `<span class="mt ${l.length?'on':''}" style="${l.length?'background:'+TYPE_COLORS[type]+';border:1px solid #fff3':''}${short==='스튜디오'?'':';margin-left:4px'}">${short} ${l.length?l.join(', '):'미정'}</span>`; };
-    html += `<section class="month"><h2>${y}년 ${m}월${badge('실내 스튜디오','스튜디오')}${badge('야외 촬영','야외')}${multi?`<button class="mpick" data-mpick="weekday" data-ym="${ymk}">평일 전체</button><button class="mpick" data-mpick="all" data-ym="${ymk}">이 달 전체</button>`:''}</h2><div class="dow">${DOW.map((d,wi)=>`<div data-dow="${wi}" data-ym="${ymk}">${d}</div>`).join('')}</div><div class="grid">`;
+    html += `<section class="month"><h2>${y}년 ${m}월${multi?`<button class="mpick" data-mpick="weekday" data-ym="${ymk}">평일 전체</button><button class="mpick" data-mpick="all" data-ym="${ymk}">이 달 전체</button>`:''}</h2><div class="dow">${DOW.map((d,wi)=>`<div data-dow="${wi}" data-ym="${ymk}">${d}</div>`).join('')}</div><div class="grid">`;
     for(let e=0;e<first;e++) html += `<div class="cell empty"></div>`;
     for(let d=1; d<=days; d++){
       const key = ymd(y,m,d), w = (first+d-1)%7; allDates.push(key);
