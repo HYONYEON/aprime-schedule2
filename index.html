@@ -89,6 +89,11 @@
   .mpick{margin-left:0;border:1px solid #475569;background:transparent;color:#E2E8F0;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer}
   .mpick+.mpick{margin-left:0}
   .mpick:hover{border-color:var(--orange);color:#fff}
+  .crewb{font-size:10px;font-weight:700;border-radius:4px;padding:1px 4px;line-height:1.3;white-space:nowrap;border:1px solid}
+  .crewb.all{background:#0F766E;border-color:#0F766E;color:#fff}
+  .crewb.three{background:#F0FDFA;border-color:#14B8A6;color:#0F766E}
+  .crewlegend{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted);margin-top:14px}
+  .crewlegend .crewb{font-size:12px;padding:3px 8px;margin-right:6px}
   .confirm{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
   .confirm .cbtns{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
   .confirm .cbtns button{border:2px solid var(--tc);background:#fff;color:var(--tc);border-radius:8px;padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer}
@@ -135,6 +140,11 @@
     <div style="flex:1 1 300px">
       <div class="label">촬영 안내</div>
       <div style="font-size:13px;line-height:1.7;color:#334155">매달 <b>2회</b> 촬영합니다.<br>① <b>실내 스튜디오</b> · ② <b>야외 촬영</b>(자동차 내부 · 카페 등)<br>조성민 대표님과 촬영팀 전원이 가능한 날로 정합니다.</div>
+      <div class="label" style="margin-top:14px;margin-bottom:0">촬영팀 일정 <span style="font-weight:500">· 촬영팀 공동 스케줄에서 자동 반영</span></div>
+      <div class="crewlegend" style="margin-top:8px">
+        <div><span class="crewb all">촬영팀(전부)</span>3명 모두 가능</div>
+        <div><span class="crewb three">촬영팀(2/3)</span>구주인 대표님 제외</div>
+      </div>
       <div class="filter" id="filter" style="display:none"></div>
     </div>
     <div class="best">
@@ -269,8 +279,38 @@ async function toggleConfirm(date, type){
 
 const tagsOf = m => String(m.group||'').split('/').map(x=>x.trim()).filter(Boolean);
 const homeOf = m => { const t = tagsOf(m); return t[t.length-1] || '기타'; };
-const CREW = '촬영팀'; // 촬영팀은 모든 콘텐츠 집계에 항상 포함
-function membersIn(group){ return DATA.members.filter(m => group==='전체' || tagsOf(m).includes(group) || (group!==MEETING && tagsOf(m).includes(CREW))); }
+const CREW = '촬영팀';
+const CAST = '출연';
+// 촬영팀은 촬영팀 공동 스케줄에서 한 팀으로 따로 표시하므로 출연(조성민 대표님)만 집계
+function membersIn(group){ return DATA.members.filter(m => !tagsOf(m).includes(CREW) && (group==='전체' || tagsOf(m).includes(group))); }
+
+// 촬영팀 공동 스케줄 (읽기만) — 신소윤 제외 3명 기준
+// 날짜별 'all'(3명 전원 가능) / 'three'(구주인 대표님만 빠짐)
+const CREW_API = 'https://script.google.com/macros/s/AKfycby9RtOG8-DjcHCflsS_PCmrPypcbPBEO4qD5LVtk0ZOWzwWCehpOtASAEFZ8B1kmGjy/exec';
+const CREW_EXCLUDE = ['신소윤'];
+const CREW_OPTIONAL = '구주인';
+const CREW_VIEW = new URLSearchParams(location.search).has('crew');
+const CREW_LABEL = {all:'촬영팀(전부)', three:'촬영팀(2/3)'};
+let crewDays = {};
+async function loadCrew(){
+  try{
+    // 웹앱 응답이 가끔 멈추므로 15초 넘으면 끊고 다음 주기(60초)에 다시 시도
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 15000);
+    const j = await fetch(`${CREW_API}?t=${Date.now()}`, {cache:'no-store', signal:ctl.signal}).then(r=>r.json()).finally(() => clearTimeout(timer));
+    if(!j.ok) return;
+    const names = j.members.map(m=>m.name).filter(n => !CREW_EXCLUDE.includes(n)), ok = {};
+    j.availability.forEach(a => { if(a.status==='가능' && names.includes(a.name)) (ok[a.date] = ok[a.date]||new Set()).add(a.name); });
+    crewDays = {};
+    Object.keys(ok).forEach(d => {
+      const missing = names.filter(n => !ok[d].has(n));
+      if(!missing.length) crewDays[d] = 'all';
+      else if(missing.length===1 && missing[0]===CREW_OPTIONAL) crewDays[d] = 'three';
+    });
+    render();
+  }catch(_){}
+}
+const crewBadge = d => crewDays[d] ? `<span class="crewb ${crewDays[d]}">${CREW_LABEL[crewDays[d]]}</span>` : '';
+const crewRank = d => crewDays[d]==='all' ? 2 : crewDays[d]==='three' ? 1 : 0;
 
 function statsFor(date){
   const names = new Set(membersIn(groupFilter).map(m=>m.name));
@@ -289,10 +329,11 @@ function render(){
   const [sy, sm] = (cfg.startMonth || todayStr.slice(0,7)).split('-').map(Number);
   const months = cfg.months || 3;
   const endM = new Date(sy, sm-1+months-1, 1);
-  $('title').innerHTML = `${title}<small>${sy}년 ${sm}월 ~ ${endM.getFullYear()}년 ${endM.getMonth()+1}월 · 총 ${DATA.members.length}명</small>`;
+  $('title').innerHTML = `${title}<small>${sy}년 ${sm}월 ~ ${endM.getFullYear()}년 ${endM.getMonth()+1}월 · ${CAST} ${membersIn('전체').length}명 + 촬영팀</small>`;
 
   // 멤버
-  const groups = [...new Set(DATA.members.map(homeOf))];
+  // 촬영팀 이름 줄은 촬영팀 전용 주소(?crew)로 열 때만 표시 — 일정 확정용
+  const groups = [...new Set(DATA.members.map(homeOf))].filter(g => g!==CREW || CREW_VIEW);
   const ORDER = ['팟캐스트','번외편(여자)','번외편(남자)',MEETING];
   const allTags = [...new Set(DATA.members.flatMap(tagsOf))].sort((x,y)=> ((ORDER.indexOf(x)+1)||99)-((ORDER.indexOf(y)+1)||99));
   if(me && !DATA.members.some(m=>m.name===me) && DATA.members.length) me = null;
@@ -332,7 +373,7 @@ function render(){
       const cc = (conf[key]||[]).map(c=>TYPE_COLORS[c.type]||'#475569');
       const cst = cc.length ? ` style="box-shadow:inset 0 0 0 3px ${cc[0]}${cc[1]?`,inset 0 0 0 6px ${cc[1]}`:''};background:${cc[0]}14"` : '';
       html += `<div class="${cls}" data-date="${key}"${cst}>
-        <span class="d">${d}</span>${HOLIDAYS[key]?`<span class="hname">${HOLIDAYS[key]}</span>`:''}${mine}${confs}
+        <span class="d">${d}</span>${HOLIDAYS[key]?`<span class="hname">${HOLIDAYS[key]}</span>`:''}${mine}${confs}${crewBadge(key)}
         ${s['가능'].length||s['미정'].length ? `<span class="c">가능 <b>${s['가능'].length}</b>/${s.total}</span>`:''}
         <div class="bar"><i class="o" style="width:${s['가능'].length/tot*100}%"></i><i class="m" style="width:${s['미정'].length/tot*100}%"></i></div>
       </div>`;
@@ -343,10 +384,10 @@ function render(){
 
   // 베스트 날짜
   const ranked = allDates.filter(k=>k>=todayStr).map(k=>({k, s:statsFor(k)})).filter(x=>x.s['가능'].length>0)
-    .sort((a,b)=> b.s['가능'].length-a.s['가능'].length || b.s['미정'].length-a.s['미정'].length || a.k.localeCompare(b.k)).slice(0,5);
+    .sort((a,b)=> b.s['가능'].length-a.s['가능'].length || crewRank(b.k)-crewRank(a.k) || b.s['미정'].length-a.s['미정'].length || a.k.localeCompare(b.k)).slice(0,5);
   $('best').innerHTML = ranked.length ? ranked.map(x=>{
     const dt=new Date(x.k+'T00:00:00');
-    return `<li><a href="#" data-jump="${x.k}" style="color:inherit">${dt.getMonth()+1}월 ${dt.getDate()}일 (${DOW[dt.getDay()]})</a> — <span class="cnt">가능 ${x.s['가능'].length}명</span> / ${x.s.total}명${x.s['가능'].length===x.s.total?' <span class="all">✓ 전원 가능</span>':''}${x.s['미정'].length?` · <span class="cnt-m">미정 ${x.s['미정'].length}명</span>`:''}</li>`;
+    return `<li><a href="#" data-jump="${x.k}" style="color:inherit">${dt.getMonth()+1}월 ${dt.getDate()}일 (${DOW[dt.getDay()]})</a> — <span class="cnt">가능 ${x.s['가능'].length}명</span> / ${x.s.total}명${x.s['가능'].length===x.s.total?' <span class="all">✓ 전원 가능</span>':''}${x.s['미정'].length?` · <span class="cnt-m">미정 ${x.s['미정'].length}명</span>`:''} ${crewBadge(x.k)}</li>`;
   }).join('') : '<li style="list-style:none;margin-left:-18px;color:var(--muted)">아직 응답이 없습니다</li>';
 
   renderDetail();
@@ -389,6 +430,7 @@ function renderDetail(){
       <div><b style="color:var(--maybe)">미정 ${s['미정'].length}</b>${s['미정'].join(', ')||'-'}</div>
       <div><b style="color:var(--muted)">미응답 ${s['미응답'].length}</b>${s['미응답'].join(', ')||'-'}</div>
     </div>
+    <div class="c" style="margin-top:8px">촬영팀: ${crewBadge(selDate) ? crewBadge(selDate) + (crewDays[selDate]==='three' ? ' 구주인 대표님 제외' : ' 3명 모두 가능') : '가능 인원 부족 (공동 스케줄 기준)'}</div>
     ${me && isCrew(me) ? `<div class="confirm"><div class="label" style="margin:0">일정 확정 <span style="font-weight:500">· 촬영팀 전용 · 다시 누르면 취소</span></div>
       <div class="cbtns">${Object.entries(TYPE_COLORS).map(([k,c])=>`<button style="--tc:${c}" class="${DATA.confirmed.some(x=>x.date===selDate&&x.type===k)?'on':''}" data-confirm="${k}">${DATA.confirmed.some(x=>x.date===selDate&&x.type===k)?'✓ ':''}${k}</button>`).join('')}</div></div>` : ''}`;
 }
@@ -396,7 +438,7 @@ function renderDetail(){
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-name],[data-group],[data-date],[data-set],[data-jump],[data-bulk],[data-confirm],[data-clearpick],[data-mpick],[data-dow],#multiToggle,#closeDetail,#reload');
   if(!t) return;
-  if(t.id==='reload'){ load(); return; }
+  if(t.id==='reload'){ load(); loadCrew(); return; }
   if(t.id==='multiToggle'){ multi=!multi; picked.clear(); selDate=null; render(); if(multi && !me) toast('먼저 내 이름을 골라주세요'); return; }
   if(t.dataset.confirm){ toggleConfirm(selDate, t.dataset.confirm); return; }
   if(t.dataset.bulk!==undefined){ saveMany([...picked], t.dataset.bulk); return; }
@@ -415,8 +457,8 @@ document.addEventListener('click', e => {
   }
 });
 
-load();
-setInterval(()=>load(true), 60000);
+load(); loadCrew();
+setInterval(()=>{ load(true); loadCrew(); }, 60000);
 </script>
 </body>
 </html>
