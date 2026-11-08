@@ -142,8 +142,8 @@
       <div style="font-size:13px;line-height:1.7;color:#334155">매달 <b>2회</b> 촬영합니다.<br>① <b>실내 스튜디오</b> · ② <b>야외 촬영</b>(자동차 내부 · 카페 등)<br>조성민 대표님과 촬영팀 전원이 가능한 날로 정합니다.</div>
       <div class="label" style="margin-top:14px;margin-bottom:0">촬영팀 일정 <span style="font-weight:500">· 촬영팀 공동 스케줄에서 자동 반영</span></div>
       <div class="crewlegend" style="margin-top:8px">
-        <div><span class="crewb all">촬영팀(전부)</span>3명 모두 가능</div>
-        <div><span class="crewb three">촬영팀(2/3)</span>구주인 대표님 제외</div>
+        <div><span class="crewb all" id="crewAllL">촬영팀(전부)</span><span id="crewAllT">모두 가능</span></div>
+        <div><span class="crewb three" id="crewThreeL">촬영팀</span>구주인 대표님 제외</div>
       </div>
       <div class="filter" id="filter" style="display:none"></div>
     </div>
@@ -284,14 +284,14 @@ const CAST = '출연';
 // 촬영팀은 촬영팀 공동 스케줄에서 한 팀으로 따로 표시하므로 출연(조성민 대표님)만 집계
 function membersIn(group){ return DATA.members.filter(m => !tagsOf(m).includes(CREW) && (group==='전체' || tagsOf(m).includes(group))); }
 
-// 촬영팀 공동 스케줄 (읽기만) — 신소윤 제외 3명 기준
-// 날짜별 'all'(3명 전원 가능) / 'three'(구주인 대표님만 빠짐)
+// 촬영팀 공동 스케줄 (읽기만) — 공동 스케줄의 '조성민 대표님' 탭과 같은 인원(신소윤 제외)
+// 날짜별 'all'(전원 가능) / 'three'(구주인 대표님만 빠짐)
 const CREW_API = 'https://script.google.com/macros/s/AKfycby9RtOG8-DjcHCflsS_PCmrPypcbPBEO4qD5LVtk0ZOWzwWCehpOtASAEFZ8B1kmGjy/exec';
 const CREW_EXCLUDE = ['신소윤'];
 const CREW_OPTIONAL = '구주인';
 const CREW_VIEW = new URLSearchParams(location.search).has('crew');
-const CREW_LABEL = {all:'촬영팀(전부)', three:'촬영팀(2/3)'};
-let crewDays = {};
+let CREW_LABEL = {all:'촬영팀(전부)', three:'촬영팀'};
+let crewDays = {}, crewN = 0;
 async function loadCrew(){
   try{
     // 웹앱 응답이 가끔 멈추므로 15초 넘으면 끊고 다음 주기(60초)에 다시 시도
@@ -300,7 +300,9 @@ async function loadCrew(){
     if(!j.ok) return;
     const names = j.members.map(m=>m.name).filter(n => !CREW_EXCLUDE.includes(n)), ok = {};
     j.availability.forEach(a => { if(a.status==='가능' && names.includes(a.name)) (ok[a.date] = ok[a.date]||new Set()).add(a.name); });
-    crewDays = {};
+    crewDays = {}; crewN = names.length;
+    CREW_LABEL = {all:'촬영팀(전부)', three:`촬영팀(${crewN-1}/${crewN})`};
+    $('crewAllT').textContent = `${crewN}명 모두 가능 (${names.join('·')})`; $('crewThreeL').textContent = CREW_LABEL.three;
     Object.keys(ok).forEach(d => {
       const missing = names.filter(n => !ok[d].has(n));
       if(!missing.length) crewDays[d] = 'all';
@@ -432,7 +434,7 @@ function renderDetail(){
       <div><b style="color:var(--maybe)">미정 ${s['미정'].length}</b>${s['미정'].join(', ')||'-'}</div>
       <div><b style="color:var(--muted)">미응답 ${s['미응답'].length}</b>${s['미응답'].join(', ')||'-'}</div>
     </div>
-    <div class="c" style="margin-top:8px">촬영팀: ${crewBadge(selDate) ? crewBadge(selDate) + (crewDays[selDate]==='three' ? ' 구주인 대표님 제외' : ' 3명 모두 가능') : '가능 인원 부족 (공동 스케줄 기준)'}</div>
+    <div class="c" style="margin-top:8px">촬영팀: ${crewBadge(selDate) ? crewBadge(selDate) + (crewDays[selDate]==='three' ? ' 구주인 대표님 제외' : ` ${crewN}명 모두 가능`) : '가능 인원 부족 (공동 스케줄 기준)'}</div>
     ${me && isCrew(me) ? `<div class="confirm"><div class="label" style="margin:0">일정 확정 <span style="font-weight:500">· 촬영팀 전용 · 다시 누르면 취소</span></div>
       <div class="cbtns">${Object.entries(TYPE_COLORS).map(([k,c])=>`<button style="--tc:${c}" class="${DATA.confirmed.some(x=>x.date===selDate&&x.type===k)?'on':''}" data-confirm="${k}">${DATA.confirmed.some(x=>x.date===selDate&&x.type===k)?'✓ ':''}${k}</button>`).join('')}</div></div>` : ''}`;
 }
