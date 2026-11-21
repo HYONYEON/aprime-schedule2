@@ -262,8 +262,11 @@ function togglePick(keys){
 }
 
 const isCrew = name => DATA.members.some(m => m.name===name && tagsOf(m).includes(CREW));
+// 일정 확정은 이 사람만 (촬영팀 다른 이름으로는 확정 버튼이 안 보임)
+const CONFIRMER = '김효년';
+const canConfirm = name => name===CONFIRMER && isCrew(name);
 async function toggleConfirm(date, type){
-  if(!me || !isCrew(me)){ toast('일정 확정은 촬영팀만 할 수 있어요'); return; }
+  if(!me || !canConfirm(me)){ toast(`일정 확정은 ${CONFIRMER}만 할 수 있어요`); return; }
   const on = !DATA.confirmed.some(c => c.date===date && c.type===type);
   if(on) DATA.confirmed.push({date, type, memo:''}); else DATA.confirmed = DATA.confirmed.filter(c => !(c.date===date && c.type===type));
   render();
@@ -435,7 +438,7 @@ function renderDetail(){
       <div><b style="color:var(--muted)">미응답 ${s['미응답'].length}</b>${s['미응답'].join(', ')||'-'}</div>
     </div>
     <div class="c" style="margin-top:8px">촬영팀: ${crewBadge(selDate) ? crewBadge(selDate) + (crewDays[selDate]==='three' ? ' 구주인 대표님 제외' : ` ${crewN}명 모두 가능`) : '가능 인원 부족 (공동 스케줄 기준)'}</div>
-    ${me && isCrew(me) ? `<div class="confirm"><div class="label" style="margin:0">일정 확정 <span style="font-weight:500">· 촬영팀 전용 · 다시 누르면 취소</span></div>
+    ${me && canConfirm(me) ? `<div class="confirm"><div class="label" style="margin:0">일정 확정 <span style="font-weight:500">· ${CONFIRMER} 전용 · 다시 누르면 취소</span></div>
       <div class="cbtns">${Object.entries(TYPE_COLORS).map(([k,c])=>`<button style="--tc:${c}" class="${DATA.confirmed.some(x=>x.date===selDate&&x.type===k)?'on':''}" data-confirm="${k}">${DATA.confirmed.some(x=>x.date===selDate&&x.type===k)?'✓ ':''}${k}</button>`).join('')}</div></div>` : ''}`;
 }
 
