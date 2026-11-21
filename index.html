@@ -130,10 +130,6 @@
       확정된 일정은 칸 안에 색 라벨로 표시됩니다.
       <div id="modeBox"></div>
     </div>
-    <div class="warn3">
-      <div class="label step" style="color:var(--no)">③ 일정 확정</div>
-      <div class="warnbox">⚠ 일정 확정 버튼은 <b>운영진 외에는 절대로 건드리시면 안 됩니다.</b></div>
-    </div>
   </div>
 
   <div class="panel row">
@@ -314,7 +310,9 @@ async function loadCrew(){
     render();
   }catch(_){}
 }
-const crewBadge = d => crewDays[d] ? `<span class="crewb ${crewDays[d]}">${CREW_LABEL[crewDays[d]]}</span>` : '';
+// 날짜별 촬영팀 안내(공동 스케줄과 상관없이 정해진 날) — 날짜: [칸에 붙는 짧은 말, 자세한 안내]
+const CREW_NOTE = {'2026-12-11': ['김남영 단독', '김남영 감독님만 갑니다 · 하루 종일 동행 촬영']};
+const crewBadge = d => CREW_NOTE[d] ? `<span class="crewb three">${CREW_NOTE[d][0]}</span>` : crewDays[d] ? `<span class="crewb ${crewDays[d]}">${CREW_LABEL[crewDays[d]]}</span>` : '';
 const crewRank = d => crewDays[d]==='all' ? 2 : crewDays[d]==='three' ? 1 : 0;
 
 function statsFor(date){
@@ -437,7 +435,7 @@ function renderDetail(){
       <div><b style="color:var(--maybe)">미정 ${s['미정'].length}</b>${s['미정'].join(', ')||'-'}</div>
       <div><b style="color:var(--muted)">미응답 ${s['미응답'].length}</b>${s['미응답'].join(', ')||'-'}</div>
     </div>
-    <div class="c" style="margin-top:8px">촬영팀: ${crewBadge(selDate) ? crewBadge(selDate) + (crewDays[selDate]==='three' ? ' 구주인 대표님 제외' : ` ${crewN}명 모두 가능`) : '가능 인원 부족 (공동 스케줄 기준)'}</div>
+    <div class="c" style="margin-top:8px">촬영팀: ${CREW_NOTE[selDate] ? crewBadge(selDate) + ' ' + CREW_NOTE[selDate][1] : crewBadge(selDate) ? crewBadge(selDate) + (crewDays[selDate]==='three' ? ' 구주인 대표님 제외' : ` ${crewN}명 모두 가능`) : '가능 인원 부족 (공동 스케줄 기준)'}</div>
     ${me && canConfirm(me) ? `<div class="confirm"><div class="label" style="margin:0">일정 확정 <span style="font-weight:500">· ${CONFIRMER} 전용 · 다시 누르면 취소</span></div>
       <div class="cbtns">${Object.entries(TYPE_COLORS).map(([k,c])=>`<button style="--tc:${c}" class="${DATA.confirmed.some(x=>x.date===selDate&&x.type===k)?'on':''}" data-confirm="${k}">${DATA.confirmed.some(x=>x.date===selDate&&x.type===k)?'✓ ':''}${k}</button>`).join('')}</div></div>` : ''}`;
 }
